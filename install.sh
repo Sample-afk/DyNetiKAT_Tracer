@@ -8,6 +8,7 @@ pip3 install numpy networkx
 cd netkat
 opam init -y
 eval $(opam env)
+opam install printbox-html printbox-text -y
 opam install mparser=1.2.3 -y
 opam install . --deps-only -y
 eval $(opam env)
