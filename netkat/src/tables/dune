@@ -7,7 +7,8 @@
     idds
     netkat.kat
     printbox
-    printbox.html
+    printbox-text
+    printbox-html
     open
     tyxml
   )

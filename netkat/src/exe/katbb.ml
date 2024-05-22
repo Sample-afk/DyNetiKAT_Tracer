@@ -25,9 +25,9 @@ let compile_exp ?mgr (exp : Ast.exp) : Idd.t * int Hashtbl.M(String).t * Idd.man
   idd, tbl, mgr
 
 let time f =
-  let t1 = Unix.gettimeofday () in
+  let t1 = Core_unix.gettimeofday () in
   let r = f () in
-  let t2 = Unix.gettimeofday () in
+  let t2 = Core_unix.gettimeofday () in
   (t2 -. t1, r)
 
 let print_time ?(prefix="") time =
@@ -189,4 +189,4 @@ let main : Command.t =
     [("idd", idd); ("equiv", equiv); ("repl", repl); ("table", table)]
 
 let () =
-  Command.run ~version: "0.1" ~build_info: "N/A" main
+  Command_unix.run ~version: "0.1" ~build_info: "N/A" main

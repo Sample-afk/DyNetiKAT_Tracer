@@ -4,6 +4,8 @@
  (libraries 
     async
     core
+    core_unix
+    core_unix.command_unix
     netkat.katbb_lib
     idds
     netkat.repl

@@ -4,7 +4,7 @@ sudo apt install libncurses5 opam git python3-pip --assume-yes
 pip3 install numpy networkx
 
 #install NetKAT tool
-git clone https://github.com/netkat-lang/netkat/
+# git clone https://github.com/netkat-lang/netkat/
 cd netkat
 opam init -y
 eval $(opam env)
