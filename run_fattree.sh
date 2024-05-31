@@ -8,4 +8,4 @@ do
       python3 dnk.py ./maude-3.1/maude.linux64 ./netkat/_build/install/default/bin/katbv ./benchmarks/fattree_"$pods"_pods_$prop.json -s
       echo "----\n\n"
    done
-done
+donea
