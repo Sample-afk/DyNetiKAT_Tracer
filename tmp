@@ -1,0 +1,15 @@
+'\t\t     \\||||||||||||||||||/\n\t\t   --- Welcome to Maude ---\n\t\t     /||||||||||||||||||\\\n\t     Maude 3.1 built: Oct 12 2020 20:12:31\n\t     Copyright 1997-2020 SRI International\n\t\t   Wed May 29 23:26:44 2024\n==========================================\n
+reduce in STATEFUL-FIREWALL : ("(pt = 2 . zero)" ; Switch o+ (secConReq ?\n    "one") ; SwitchPrime) o+ "(pt = 1 . pt <- 2)" ; Switch .\n
+rewrites: 7 in 0ms cpu (0ms real) (~ rewrites/second)\n
+result DNA: @NetKAT("(pt = 1 . pt <- 2)") ; Switch o+ @NetKAT(\n    "(pt = 2 . zero)") ; Switch o+ @Comm(secConReq,"one") ; SwitchPrime\nBye.\n'
+
+'\t\t     \\||||||||||||||||||/\n\t\t   --- Welcome to Maude ---\n\t\t     /||||||||||||||||||\\\n\t     Maude 3.1 built: Oct 12 2020 20:12:31\n\t     Copyright 1997-2020 SRI International\n\t\t   Wed May 29 23:32:01 2024\n==========================================\n
+reduce in STATEFUL-FIREWALL : ("(pt = 2 . zero)" ; Switch o+ (secConReq ?\n    "one") ; SwitchPrime) o+ "(pt = 1 . pt <- 2)" ; Switch .\n
+rewrites: 7 in 0ms cpu (0ms real) (~ rewrites/second)\n
+result DNA: @NetKAT("(pt = 1 . pt <- 2)") ; Switch o+ @NetKAT(\n    "(pt = 2 . zero)") ; Switch o+ @Comm(secConReq,"one") ; SwitchPrime\nBye.\n'
+
+reduce in STATEFUL-FIREWALL : ("(pt = 2 . zero)" ; Switch o+ (secConReq ? "one") ; SwitchPrime) o+ "(pt = 1 . pt <- 2)" ; Switch
+
+reduce in STATEFUL-FIREWALL : ("(pt = 2 . zero)" ; Switch o+ (secConReq ? "one") ; SwitchPrime) o+ "(pt = 1 . pt <- 2)" ; Switch .
+
+'\t\t     \\||||||||||||||||||/\n\t\t   --- Welcome to Maude ---\n\t\t     /||||||||||||||||||\\\n\t     Maude 3.1 built: Oct 12 2020 20:12:31\n\t     Copyright 1997-2020 SRI International\n\t\t   Wed May 29 23:42:42 2024\nBye.\n'

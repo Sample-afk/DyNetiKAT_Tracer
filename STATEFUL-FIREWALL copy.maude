@@ -1,0 +1,8 @@
+load /home/mom/DyNetiKAT_contained/src/maude/preprocess.maude
+
+fmod STATEFUL-FIREWALL is 
+	protecting DNA .
+	ops Switch SwitchPrime Host : -> Recursive .
+	ops secConReq secConEnd : -> Channel .
+
+endfm
