@@ -1,0 +1,33 @@
+load ./dnk.maude
+
+fmod FIREWALL is
+    protecting DNA .
+    
+    ops Switch Switch' Host Init : -> DNA .
+    ops port ext int : -> String .
+    ops secConReq secConEnd : -> Comm .
+    
+    var SwitchConfig : DNA .
+
+    ceq Switch = Switch if port = int .
+    ceq Switch = ((port := ext)) ; Switch if port = int .
+    ceq Switch = 0 ; Switch if port = ext .
+    ceq Switch = Switch' if secConReq .
+    
+    ceq Switch' = ((port := ext)) ; Switch' if port = int .
+    ceq Switch' = ((port := int)) ; Switch' if port = ext .
+    ceq Switch' = Switch if secConEnd .
+    
+    eq Switch = ((port = int) ; (port := ext)) ; Switch
+              o+ ((port = ext) ; 0) ; Switch
+              o+ secConReq ; Switch' .
+    
+    eq Switch' = ((port = int) ; (port := ext)) ; Switch'
+               o+ ((port = ext) ; (port := int)) ; Switch'
+               o+ secConEnd ; Switch .
+
+    eq Host = secConReq ; 1 ; Host
+            o+ secConEnd ; 1 ; Host .
+    
+    eq Init = Host || Switch .
+endfm
