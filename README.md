@@ -18,7 +18,131 @@ This is a network verification tool based on the [DyNetKAT](https://arxiv.org/ab
 
 NetKAT tool ([netkat-idd](https://github.com/netkat-lang/netkat) or [netkat-automata](https://github.com/frenetic-lang/netkat-automata))
 
+
+
+## HOW TO INSTALL (DyNetiKAT)
+  #### Requirements
+  - clean linux (virtual) machine
+
+  #### Steps
+  1. Clone this repositoryif it's not yet on your machine.
+  2. Navigate to the root of the project (*`DyNetiKAT_contained/`* folder).
+  3. Run the following command: `bash install.sh`
+      > Note: this can take a while.
+  4. if the result looks something like this: 
+
+      ```sh
+        HTTP request sent, awaiting response... 404 Not Found
+        2024-05-31 16:44:42 ERROR 404: Not Found.
+
+        .ZIP.or Maude-3.1-linux.zip Maude-3.1-linux.zip
+        rm: cannot remove 'Maude-3.1-linux.zip'$'\r': No such file or directory
+        tst.sh: line 22: cd: $'maude-3.1\r': No such file or directory
+        chmod: cannot access 'maude.linux64'$ '\r': No such file or directory
+      ```
+
+      - please run the following commands:
+        - `sudo apt install dos2unix` 
+        - `dos2unix install.sh`
+        > Note: dos2unix is a tool that changes files from windows encoding to unix encoding (in this case it will change unrecognized `\r` to something that unix system can understand).
+      - and run the `bash install.sh` again.
+  5. to check instalation run `bash run_test.sh`, you should get the following output:
   
+      ```sh
+        ~/DyNetiKAT_contained$ bash run_test.sh
+        Packet: int_to_ext - property: #0: property satisfied.
+        Packet: int_to_ext - property: #1: property satisfied.
+        Packet: ext_to_int - property: #0: property satisfied.
+        Packet: ext_to_int - property: #1: property satisfied.
+      ```
+      > Note: `run_test.sh` might have similar issue to `install.sh`, fix is also similar - run `dos2unix run_test.sh`
+
+
+
+## HOW TO INSTALL (Maude)
+  If you intend to use only DyNetiKAT this section is irrelevant to you, since DyNEtiKAT has it's own Maude instalation, which is not easily available system-wide.
+
+  However if you need to run MiTool, then Maude is required. There are 2 options how to get Maude working.
+
+  ### Option 1 (Hard way): using DyNetiKAT instalation  
+
+  As any programme, Maude has an entry point, namely `maude.linux64`, so to call Maude we need to call this executable. DyNetiKAT installes Maude in `DyNetiKAT_contained/maude-3.1/maude.linux64`. We need to create an alias for the instalation.
+
+  #### Steps
+  1. Go to root directory of the system: run `cd ~`
+  2. Open `.bashrc` file with a text editor (here `nano` as example): run `nano ~/.bashrc` or `nano .bashrc`
+  3. Add alias to the Maude executable using absolute path: add the following line to the end of `.bashrc` file  
+      > Note: DO NOT forget to change path to the appropriate one
+      ```sh 
+        alias mde='/home/mom/DyNetiKAT_contained/maude-3.1/maude.linux64'
+      ```
+      where:
+      - mde - alias name
+      - mom - example user name
+      > Note: In the example `DyNetiKAT_contained/` folder is located directly in the default user folder
+  4. Save changes and close the file
+  If you are using `nano`:
+      1. press `Ctrl + o` to save
+      2. press `Enter` to confirm saving
+      3. press `Ctrl + x` to exit
+  5. reload the `~/.bashrc` for the changes to take effect: run `source ~/.bashrc` (otherwise changes will take effect after a restart)
+
+  ### Option 2 (Easier way): install Maude system-wide
+  Simply run `sudo apt install maude`. Thats it, maude is installed system-wide.
+
+
+
+## HOW TO RUN (MiTool (basicaly 'how to run maude' for now)) 
+This tool is self contained, meaning the instalation of DyNetiKAT is not requred.  
+
+The tool is also unfinished, so the instruction are to represent current features and calling procedure (last updated on __`31.05.2024`__).
+  #### Requirements
+  - clean linux (virtual) machine
+  - Maude installed
+
+  #### Steps
+  1. Clone this repository if it's not yet on your machine.
+  2. Navigate to the *`DyNetiKAT_containde/MiTool/`* directory
+  3. Run maude by calling `maude` or your defined alias in the command prompt
+      ```sh
+        ~/DyNetiKAT_contained/MiTool$ maude
+                      \||||||||||||||||||/
+                    --- Welcome to Maude ---
+                      /||||||||||||||||||\
+              Maude 3.1
+              Copyright 1997-2020 SRI International
+                    Fri May 31 17:35:54 2024
+        Maude>
+      ```
+  4. Load the appropriate `.maude` file (`new_model.maude` in this case)  
+      First load
+      ```sh
+        Maude> load new_model.maude
+        Maude>
+      ```  
+      Reload
+      ```sh
+        Maude> load new_model.maude
+        Advisory: redefining module FIELD.
+        Advisory: redefining module COMM.
+        Advisory: redefining view Comm.
+        Advisory: redefining module DNA.
+        Advisory: redefining module RECURSIVE-DNA.
+        Advisory: redefining module PROPERTY-CHECKING.
+        Advisory: redefining module SIMPLER-MODEL.
+        Maude>      
+      ```
+  5. Run `red pi{*num_of_unfolds*}(*programme/expression*)`
+      ```sh
+        Maude> red pi{1}(Switch || Controller) .
+        reduce in SIMPLER-MODEL : pi{1}(Switch || Controller) .
+        rewrites: 1514 in 0ms cpu (0ms real) (~ rewrites/second)
+        result DNA: "(flag = b-SSH . 1)" ; bot o+ "(flag = b-TCP . 1)" ; bot o+ "(flag = regular) . (type = SSH) . (pt = 1) . (pt <- 2)" ; bot o+ "(flag = regular) . (type = TCP) . (pt = 1) . (pt <- 2)" ; bot o+ (Up ? "one") ; bot o+ (TCP ? "one") ; bot o+ (SSH ? "one") ; bot
+        Maude>      
+      ```
+  6. To stop Maude press `Ctrl+Z`
+
+
 
 ## Usage
 
