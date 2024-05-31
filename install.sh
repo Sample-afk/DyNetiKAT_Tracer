@@ -14,7 +14,7 @@ opam install . --deps-only -y
 eval $(opam env)
 make
 cd ..
-a
+
 #download Maude
 wget maude.cs.illinois.edu/w/images/3/38/Maude-3.1-linux.zip
 unzip Maude-3.1-linux.zip
