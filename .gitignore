@@ -1,3 +1,7 @@
 __MACOSX/
 maude-3.1/
 *.pyc
+old_outs/
+old/
+TracerTool_output*/
+output/
