@@ -1,35 +1,26 @@
+## DyNetiKAT with race condition tracing
 
-
-
-[![DOI](https://zenodo.org/badge/338371401.svg)](https://zenodo.org/badge/latestdoi/338371401)
-
-
-
-## DyNetiKAT
+This is a fork of [DyNetiKAT](https://github.com/hcantunc/DyNetiKAT) with race condition tracer extension .
 
 This is a network verification tool based on the [DyNetKAT](https://arxiv.org/abs/2102.10035) language which provides a reasoning method on reachability and waypointing properties for dynamic networks. DyNetiKAT utilizes [Maude](https://www.sciencedirect.com/science/article/pii/S0304397501003590) rewriting system and [NetKAT](https://dl.acm.org/doi/10.1145/2578855.2535862) decision procedure in the background.
 
   
 ## Requirements
   
-[Python (>= 3.7)](https://www.python.org/downloads/) including the package [NumPy](https://numpy.org/)
-
-[Maude (>= 3.0)](http://maude.cs.illinois.edu/w/index.php/All_Maude_3_versions)
-
-NetKAT tool ([netkat-idd](https://github.com/netkat-lang/netkat) or [netkat-automata](https://github.com/frenetic-lang/netkat-automata))
+A linux enviroment with [Python (>= 3.10.12)](https://www.python.org/downloads/)
 
 
 
-## HOW TO INSTALL (DyNetiKAT)
+## HOW TO INSTALL (DyNetiKAT with Tracer)
   #### Requirements
-  - clean linux (virtual) machine
+  - linux (virtual) machine
 
   #### Steps
-  1. Clone this repositoryif it's not yet on your machine.
+  1. Clone this repository if it's not yet on your machine.
   2. Navigate to the root of the project (*`DyNetiKAT_contained/`* folder).
   3. Run the following command: `bash install.sh`
       > Note: this can take a while.
-  4. if the result looks something like this: 
+  4. if the result looks something like this (if not skip this step): 
 
       ```sh
         HTTP request sent, awaiting response... 404 Not Found
@@ -44,7 +35,7 @@ NetKAT tool ([netkat-idd](https://github.com/netkat-lang/netkat) or [netkat-auto
       - please run the following commands:
         - `sudo apt install dos2unix` 
         - `dos2unix install.sh`
-        > Note: dos2unix is a tool that changes files from windows encoding to unix encoding (in this case it will change unrecognized `\r` to something that unix system can understand).
+        > Note: dos2unix is a tool that changes files from windows encoding to unix encoding (in this case it will change unrecognized `\r` to something that a unix based system can understand).
       - and run the `bash install.sh` again.
   5. to check instalation run `bash run_test.sh`, you should get the following output:
   
@@ -59,92 +50,35 @@ NetKAT tool ([netkat-idd](https://github.com/netkat-lang/netkat) or [netkat-auto
 
 
 
-## HOW TO INSTALL (Maude)
-  If you intend to use only DyNetiKAT this section is irrelevant to you, since DyNEtiKAT has it's own Maude instalation, which is not easily available system-wide.
+## Usage (Tracer)
 
-  However if you need to run MiTool, then Maude is required. There are 2 options how to get Maude working.
+    python tracer_runner.py <path_to_maude> <path_to_model_in_maude>
 
-  ### Option 1 (Hard way): using DyNetiKAT instalation  
-
-  As any programme, Maude has an entry point, namely `maude.linux64`, so to call Maude we need to call this executable. DyNetiKAT installes Maude in `DyNetiKAT_contained/maude-3.1/maude.linux64`. We need to create an alias for the instalation.
-
-  #### Steps
-  1. Go to root directory of the system: run `cd ~`
-  2. Open `.bashrc` file with a text editor (here `nano` as example): run `nano ~/.bashrc` or `nano .bashrc`
-  3. Add alias to the Maude executable using absolute path: add the following line to the end of `.bashrc` file  
-      > Note: DO NOT forget to change path to the appropriate one
-      ```sh 
-        alias mde='/home/mom/DyNetiKAT_contained/maude-3.1/maude.linux64'
-      ```
-      where:
-      - mde - alias name
-      - mom - example user name
-      > Note: In the example `DyNetiKAT_contained/` folder is located directly in the default user folder
-  4. Save changes and close the file
-  If you are using `nano`:
-      1. press `Ctrl + o` to save
-      2. press `Enter` to confirm saving
-      3. press `Ctrl + x` to exit
-  5. reload the `~/.bashrc` for the changes to take effect: run `source ~/.bashrc` (otherwise changes will take effect after a restart)
-
-  ### Option 2 (Easier way): install Maude system-wide
-  Simply run `sudo apt install maude`. Thats it, maude is installed system-wide.
+    Options:
+      -h, --help            show this help message and exit
+      -f LOG_FILENAME, --log_filename=LOG_FILENAME
+                            custom text output filename, default:
+                            RUN_TRACER_OUT.txt
+      -u UNFOLD_DEPTH, --unfold_depth=UNFOLD_DEPTH
+                            unfold depth for DNKs 'pi{*depth*}(*program*)',
+                            default: 4
+      -c, --colorful        print output with color
+      -t, --tracing_steps   print tracing steps
+      -g GRAPHS, --graph_types=GRAPHS
+                            choose types of traces returned 'full' or 'race' if
+                            ommited, do both
 
 
+## HOW TO RUN (Tracer) 
+  The repository contains a `run_tracer.sh` file. Simply run the command `bash run_tracer.sh` to execute `tracer_runner.py` with the folowing parameters:
+  - `./maude-3.1/maude.linux64` - path to maude instalation (from running `install.sh`) 
+  - `./TracerTool/models/dev_model.maude` - path to running model 
+  - `-c` - output text with ANSI colors
+  - `-t` - show tracing steps
 
-## HOW TO RUN (MiTool (basicaly 'how to run maude' for now)) 
-This tool is self contained, meaning the instalation of DyNetiKAT is not requred.  
+  Outputs (copy of console output and graphs) can be found in the `TracerTool_output/` directory.
 
-The tool is also unfinished, so the instruction are to represent current features and calling procedure (last updated on __`31.05.2024`__).
-  #### Requirements
-  - clean linux (virtual) machine
-  - Maude installed
-
-  #### Steps
-  1. Clone this repository if it's not yet on your machine.
-  2. Navigate to the *`DyNetiKAT_containde/MiTool/`* directory
-  3. Run maude by calling `maude` or your defined alias in the command prompt
-      ```sh
-        ~/DyNetiKAT_contained/MiTool$ maude
-                      \||||||||||||||||||/
-                    --- Welcome to Maude ---
-                      /||||||||||||||||||\
-              Maude 3.1
-              Copyright 1997-2020 SRI International
-                    Fri May 31 17:35:54 2024
-        Maude>
-      ```
-  4. Load the appropriate `.maude` file (`new_model.maude` in this case)  
-      First load
-      ```sh
-        Maude> load new_model.maude
-        Maude>
-      ```  
-      Reload
-      ```sh
-        Maude> load new_model.maude
-        Advisory: redefining module FIELD.
-        Advisory: redefining module COMM.
-        Advisory: redefining view Comm.
-        Advisory: redefining module DNA.
-        Advisory: redefining module RECURSIVE-DNA.
-        Advisory: redefining module PROPERTY-CHECKING.
-        Advisory: redefining module SIMPLER-MODEL.
-        Maude>      
-      ```
-  5. Run `red pi{*num_of_unfolds*}(*programme/expression*)`
-      ```sh
-        Maude> red pi{1}(Switch || Controller) .
-        reduce in SIMPLER-MODEL : pi{1}(Switch || Controller) .
-        rewrites: 1514 in 0ms cpu (0ms real) (~ rewrites/second)
-        result DNA: "(flag = b-SSH . 1)" ; bot o+ "(flag = b-TCP . 1)" ; bot o+ "(flag = regular) . (type = SSH) . (pt = 1) . (pt <- 2)" ; bot o+ "(flag = regular) . (type = TCP) . (pt = 1) . (pt <- 2)" ; bot o+ (Up ? "one") ; bot o+ (TCP ? "one") ; bot o+ (SSH ? "one") ; bot
-        Maude>      
-      ```
-  6. To stop Maude press `Ctrl+Z`
-
-
-
-## Usage
+## Usage (From original DyNetiKAT)
 
     python dnk.py <path_to_maude> <path_to_netkat_tool> <input_file>
 
@@ -160,8 +94,9 @@ The tool is also unfinished, so the instruction are to represent current feature
 For `netkat-idd` tool, the path should be as follows: `path_to_netkat_idd_build_dir/install/default/bin/katbv`. <br>
 For `netkat-automata` tool, the path should be as follows: `path_to_netkat_automata_build_dir/src/Decide_Repl.native`.
 
+# From this point onward the readme is unchanged from original DyNetiKAT repository
 
-## Encoding 
+## Encoding
 
 In the following we describe how the operators of NetKAT and DyNetKAT can be represented in in the tool. DyNetKAT operators are encoded as follows:   
  - The dummy policy<img src="https://render.githubusercontent.com/render/math?math=\bot">is encoded as `bot`

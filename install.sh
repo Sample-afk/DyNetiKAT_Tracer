@@ -1,7 +1,7 @@
 #install all the dependencies
 sudo apt-get update
-sudo apt install libncurses5 opam git python3-pip --assume-yes
-pip3 install numpy networkx
+sudo apt install libncurses5 opam git python3-pip graphviz --assume-yes
+pip3 install numpy networkx chardet matplotlib pydot
 
 #install NetKAT tool
 # git clone https://github.com/netkat-lang/netkat/
