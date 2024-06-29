@@ -77,6 +77,8 @@ A linux enviroment with [Python (>= 3.10.12)](https://www.python.org/downloads/)
   - `-t` - show tracing steps
 
   Outputs (copy of console output and graphs) can be found in the `TracerTool_output/` directory.
+  
+  > Note that `run_tracer.sh` misgh have issues similar to `install.sh`, refer to the note at the end of `HOW TO INSTALL` section.
 
 ## Usage (From original DyNetiKAT)
 
