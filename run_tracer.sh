@@ -1,0 +1,1 @@
+python3 tracer_runner.py ./maude-3.1/maude.linux64 ./TracerTool/models/dev_model.maude -c -t

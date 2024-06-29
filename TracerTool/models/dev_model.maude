@@ -1,0 +1,18 @@
+load ../../src/maude/dnk.maude
+
+fmod MODEL is
+    protecting DNA .
+    protecting PROPERTY-CHECKING .
+
+    ops Init : -> DNA .
+    ops SW, SWP, C : -> Recursive .
+    ops Help, Up : -> Channel .
+
+    eq getRecPol(SW) = "(flag = regular) . (pt = 1) . (pt <- 2)" ; SW o+
+                        "(flag = blocking) . (pt = 1) . 1" ; ( (Help ! "one") ; SW ) o+
+                        (Up ? "one") ; SWP .
+    eq SWP = zero ; bot .
+    eq getRecPol(C) = (Help ? "one") ; ( (Up ! "one") ; C ) .
+
+    eq Init = C || SW .
+endfm
