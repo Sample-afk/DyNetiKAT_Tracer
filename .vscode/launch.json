@@ -13,7 +13,7 @@
             // "args": ["-h"]
             // "args": ["./maude-3.1/maude.linux64", "./netkat/_build/install/default/bin/katbv", "./benchmarks/stateful_firewall.json"]
 
-            "args": ["./maude-3.1/maude.linux64", "./TracerTool/models/dev_model.maude", "-u1", "-c", "-t", "-grace"]
+            "args": ["./maude-3.1/maude.linux64", "./TracerTool/models/dev_model.maude", "-c", "-u5", ""]
             // "args": ["./maude-3.1/maude.linux64", "./TracerTool/models/dev_model.maude", "-c", "-t", "-grace"]
             // "args": ["./maude-3.1/maude.linux64", "./TracerTool/models/dev_model.maude", "-c", ""]
             // "args": ["./maude-3.1/maude.linux64", "./TracerTool/models/dev_model.maude", "-c", "-t"]

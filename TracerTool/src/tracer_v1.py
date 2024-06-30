@@ -483,7 +483,7 @@ class TracerTool:
         
         node_size = 11000
         font_size = 10
-        label_size = 8
+        label_size = 8.5
         
         # pos = nx.spring_layout(G)
         # pos = graphviz_layout(G, prog="twopi")
@@ -499,8 +499,11 @@ class TracerTool:
             x = max(ratio_dict.values())
             y_mult = 2.2
             x_mult = 2.35
-            padding = 5
-            fig_size = (x * x_mult + padding, y * y_mult + padding)
+            padding = 5 
+            a = x * x_mult + padding
+            b = y * y_mult + padding 
+            # b = 2
+            fig_size = (a, b)
         
         
         plt.figure(figsize=fig_size)

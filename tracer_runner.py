@@ -253,8 +253,8 @@ class TracerRunner:
         step_txt = "Step 3"
         t.add_text(f'{step_txt}:', self.STEP_COL, self.STEP_ST)
         t.add_line("trace")
-        # img_format = ".svg"
-        img_format = ".png"
+        img_format = ".svg"
+        # img_format = ".png"
         
                    
         
@@ -269,7 +269,7 @@ class TracerRunner:
             trace_start = perf_counter()
             tracer_full.call_trace()
             trace_end = perf_counter()
-            tracer_full.make_and_save_graph(f'GRAPH_FULL{img_format}')
+            tracer_full.make_and_save_graph(f'GRAPH_FULL_unfold_{self.unfold_depth}{img_format}')
             graph_end = perf_counter()
                     
             # save times
@@ -288,10 +288,10 @@ class TracerRunner:
             tracer_race.call_trace(get_only_races=True)
             trace_end = perf_counter()
             # similar to full graph, but each branch ends if race was found
-            tracer_race.make_and_save_graph(f'GRAPH_PRUNED{img_format}')
+            tracer_race.make_and_save_graph(f'GRAPH_PRUNED_unfold_{self.unfold_depth}{img_format}')
             pruned_end = perf_counter()
             # race graph
-            tracer_race.make_and_save_race_graph(f'GRAPH_ONLY_RACES{img_format}')
+            tracer_race.make_and_save_race_graph(f'GRAPH_ONLY_RACES_unfold_{self.unfold_depth}{img_format}')
             races_end = perf_counter()
             
             # save times
