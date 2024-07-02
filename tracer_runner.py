@@ -31,7 +31,7 @@ class TracerRunner:
             self.terminal.flush()
             self.file.flush()
 
-    DEFAULT_UNFOLD_DEPTH = 4
+    DEFAULT_UNFOLD_DEPTH = 3
     DEFAULT_OUT_COL = [Colors.WHITE]
 
     STEP_COL = [Colors.RED]
