@@ -1,14 +1,16 @@
 import os
 import optparse
 import sys
+import numpy as np
 
 # file reading
 import chardet
 import re
 
 # core classes
-from TracerTool.src.component import Component
-from TracerTool.src.tracer_v1 import TracerTool
+# from TracerTool.src.component import Component
+from TracerTool.src.component_v1 import Component
+from TracerTool.src.tracer_v2_SEQ import TracerTool
 from TracerTool.src.maude_parser import MaudeComm
 from TracerTool.src.color_builder import Colors, ColorBuilder, ColorBuildenPlainText
 
@@ -32,11 +34,14 @@ class TracerRunner:
             self.file.flush()
 
     DEFAULT_UNFOLD_DEPTH = 3
+    
+    # Text colors
     DEFAULT_OUT_COL = [Colors.WHITE]
-
     STEP_COL = [Colors.RED]
+    # Text styles
     STEP_ST = [Colors.BOLD]
     LOG_ST = [Colors.DIM]
+    
     SEP = "+-+-+-+-+-+-+--+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-"
     DEFAULT_LOG_NAME = 'RUN_TRACER_OUT.txt'
     OUT_FOLDER_NAME = 'TracerTool_output'
@@ -146,7 +151,8 @@ class TracerRunner:
     def get_info_from_model(self):
         _, content = self.get_encoding_and_content(self.model_path)
         init = self.get_init_st(content)
-        c_names = init.split("||")
+        split_list = list(map(str.strip, init.split('||')))
+        c_names = np.array(split_list)
         num_of_components = len(c_names)
         
         self.component_names = c_names
@@ -157,16 +163,39 @@ class TracerRunner:
     def generate_components(self):
         maude = MaudeComm(self.direct, self.maude_path, generate_outfile(self.direct, "maude_temp_out"))
         components = {}
+        controllers = set()
+        switches = set()
+        created_names = {}
         id = 0
         names = getattr(self, 'component_names', None)
         if names is None:
             raise RuntimeError("\'generate_components\' must be called after \'get_info_from_model\' in \'TraceRunner\'")
         for name in names:
-            component = Component(maude, self.unfold_depth, self.model_path, name, id, self.num_of_components, self.use_color)
+            if name in created_names:
+            # if False:
+                similar_comp = created_names[name]
+                component = similar_comp.clone_new_id(id)
+            else:
+                # get reduction from Maude
+                cmd = f'red pi{{{self.unfold_depth}}}({name}).'
+                out, err = maude.execute(self.model_path, cmd)
+                if err:
+                    raise RuntimeError(err)
+                
+                # create component
+                component = Component(name, out, id, self.num_of_components, self.use_color)
+                created_names[name] = component
+                
             components[component.id] = component
+            if component.type == Component.CompType.CONTROLLER:
+                controllers.add(component.id)
+            else:
+                switches.add(component.id)
             id += 1
         self.components = components
-        return components
+        self.controllers = controllers
+        self.switches = switches
+        return components, controllers, switches
     
 # showcase of TracerTool
     def showcase(self):
@@ -230,7 +259,7 @@ class TracerRunner:
         
         # do
         step_start = perf_counter()
-        components = self.generate_components()
+        components, controllers, switches = self.generate_components()
         step_end = perf_counter()
         
         # print results
@@ -246,6 +275,7 @@ class TracerRunner:
         self.report_step_time(step_time, step_txt, t)
         
         
+        
         # ==================================================================================================
         # SECTION 3: trace
     
@@ -254,7 +284,7 @@ class TracerRunner:
         t.add_text(f'{step_txt}:', self.STEP_COL, self.STEP_ST)
         t.add_line("trace")
         img_format = ".svg"
-        # img_format = ".png"
+        img_format = ".png"
         
                    
         
@@ -265,11 +295,12 @@ class TracerRunner:
         if self.graph_type is None or self.graph_type == 'full':
             t.add_line('Running full tracer...')
             t.print()
-            tracer_full = TracerTool(components, self.output_folder, show_steps=self.show_tracing_steps, use_color=self.use_color)
+            tracer_full = TracerTool(components, controllers, switches, self.output_folder, show_steps=self.show_tracing_steps, use_color=self.use_color)
             trace_start = perf_counter()
             tracer_full.call_trace()
             trace_end = perf_counter()
-            tracer_full.make_and_save_graph(f'GRAPH_FULL_unfold_{self.unfold_depth}{img_format}')
+            tracer_full.make_and_save_graph(f'GRAPH_FULL_unfold{img_format}')
+            # tracer_full.make_and_save_graph(f'GRAPH_FULL_unfold_{self.unfold_depth}{img_format}')
             graph_end = perf_counter()
                     
             # save times
@@ -283,15 +314,16 @@ class TracerRunner:
         if self.graph_type is None or self.graph_type == 'race':
             t.add_line('Running race tracer...')
             t.print()
-            tracer_race = TracerTool(components, self.output_folder, show_steps=self.show_tracing_steps, use_color=self.use_color)
+            tracer_race = TracerTool(components, controllers, switches, self.output_folder, show_steps=self.show_tracing_steps, use_color=self.use_color)
             trace_start = perf_counter()
             tracer_race.call_trace(get_only_races=True)
             trace_end = perf_counter()
             # similar to full graph, but each branch ends if race was found
-            tracer_race.make_and_save_graph(f'GRAPH_PRUNED_unfold_{self.unfold_depth}{img_format}')
+            # tracer_race.make_and_save_graph(f'GRAPH_PRUNED_unfold_{self.unfold_depth}{img_format}')
             pruned_end = perf_counter()
             # race graph
-            tracer_race.make_and_save_race_graph(f'GRAPH_ONLY_RACES_unfold_{self.unfold_depth}{img_format}')
+            tracer_race.make_and_save_race_graph(f'GRAPH_ONLY_RACES_unfold{img_format}')
+            # tracer_race.make_and_save_race_graph(f'GRAPH_ONLY_RACES_unfold_{self.unfold_depth}{img_format}')
             races_end = perf_counter()
             
             # save times
@@ -299,7 +331,7 @@ class TracerRunner:
             pruned_time = pruned_end - trace_end
             race_time = races_end - pruned_end
             times["\n\tRace trace"] = tr_time
-            times["\tPrune graph"] = pruned_time
+            # times["\tPrune graph"] = pruned_time
             times["\tRace graph"] = race_time
         
         
@@ -310,8 +342,8 @@ class TracerRunner:
         times[f'\n{step_txt}'] = step_time
         self.report_step_time(step_time, step_txt, t)
         
-        # ==================================================================================================
-        # print traces
+        # # ==================================================================================================
+        # # print traces
         
         if self.show_tracing_steps:
             t.add_line("Initial components (repeated):")
@@ -377,7 +409,7 @@ class TracerRunner:
 if __name__ == "__main__":
     # program_start = perf_counter()
     runner = TracerRunner()
-    
+    # runner.unfold_depth = 5
     runner.showcase()
     pass
     
