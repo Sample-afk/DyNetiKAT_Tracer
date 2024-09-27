@@ -1,5 +1,9 @@
 ## DyNetiKAT with race condition tracing
 
+This is a fork of [DyNetiKAT_with_race_tracing](https://github.com/EZUTwente/DyNetiKAT_with_race_tracing). The reason for forking is to save the work as it was during initial submition and this is the updated/cleaned version.
+
+`THE REST IS THIS SECTION IS UNCHAGED FROM THE FORK`
+
 This is a fork of [DyNetiKAT](https://github.com/hcantunc/DyNetiKAT) with race condition tracer extension .
 
 This is a network verification tool based on the [DyNetKAT](https://arxiv.org/abs/2102.10035) language which provides a reasoning method on reachability and waypointing properties for dynamic networks. DyNetiKAT utilizes [Maude](https://www.sciencedirect.com/science/article/pii/S0304397501003590) rewriting system and [NetKAT](https://dl.acm.org/doi/10.1145/2578855.2535862) decision procedure in the background.
@@ -79,6 +83,39 @@ A linux enviroment with [Python (>= 3.10.12)](https://www.python.org/downloads/)
   Outputs (copy of console output and graphs) can be found in the `TracerTool_output/` directory.
   
   > Note that `run_tracer.sh` misgh have issues similar to `install.sh`, refer to the note at the end of `HOW TO INSTALL` section.
+
+## Tracer structure
+  TracerTool consists of several layers (from top to bottom):
+  
+  | Layer | Class name   | Most recent version (filename)  |  Description |
+  |:-----:|:------------:|:-------------------------------:|:-------------|
+  |    2   | TracerRunner | *tracer_runner_v1.py*           | Prepares and feeds necessary data to the TracerTool to showase an example. |
+  |    1   | TracerTool   | *tracer_v2_SEQ.py*              | The tracer tool itself, traces execution branches, detects potential race conditions, and returns traces (can do both full and race traces chosen on class creation). Also returns a visual representation (problematic with large amount of nodes).|
+  |    1.1   | Node | *tracer_v2_SEQ.py* | A subclass of TracerTool. Represents the sate of the network in the form of a collection of `Component` classes. Used for keeping track of the network program. (Node in the graph representation) |
+  |    1.2   | Step | *tracer_v2_SEQ.py* | A subclass of TracerTool. Represents a recording of component action (packet manipulation or communication between data and control planes). Used for trace reconstruction. (Edge in the graph representation) |
+  |    0   | Component | *component_v1.py* | A representation of switcch/controller. Keeps track of personal clock, simulates network rule execution. (Information within the node from in the graph) |
+
+## Folders
+  TracerTool contains two folders deprecated and prototype. Deprecated contains old versions of several classes. While the prototype contains attemts at parralelization and object based expressions (instead of current string based).
+
+## Models
+  The directory `models` contains 3 models:
+
+  | Filename | Model |
+  | :-: | :-|
+  | dev_model.maude | Model of running example for DyNetKAT Tracer paper.|
+  | dev_model1.maude | Stateful firewall. |
+  | dev_model2.maude | Simplified version of the running exmaple. |
+
+## Possible improvements/weakpoints
+  - `Performance` - parallelize current algorithm (in my opinion requres changes to the datamodel). It is possible that for better results a faster language like c might be requreid (python should be fine for interfacing).
+  - `Datamodel` - current model is a tree structure where nodes relate to each other via storing a node within a node. This poses concurrent challanges as the object can not be shared, and so the resulting tree structure wil be most likely broken. Additionally, more clever/efficient data structures can also impact the performance positively.
+  - `Text output (specifically intermediate outputs)` - for better performance intermediate text outputs might be removed. This will, however, increase the debugging difficulty.
+  - `Graph representation` - current implementation struggles with large amount of nodes (readability issue).
+  - `Make the tool use existing ligraries` - namely `maude_parser` and `util` from the `TracerTool/src` directory.
+  - `Consider different model approach` - considering each switch as a separate component is computationaly expensive, so it might be worth to aggregate all switches into a one large switch. Additionaly if more that one switch had taken an action, any communication with the controller by any switch will lead to a race condition (see `TracerTool/Race_traces_running_ex_1c_2sw(54 min)` directory)
+
+# From original DyNetiKAT
 
 ## Usage (From original DyNetiKAT)
 
