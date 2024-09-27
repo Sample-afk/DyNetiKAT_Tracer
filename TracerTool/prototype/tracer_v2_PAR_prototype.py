@@ -1,0 +1,704 @@
+from ..src.color_builder import Colors, ColorBuilder, ColorBuildenPlainText, ColorBuilderNoOutput
+from collections import deque
+from ..src.component_v1 import Component
+import os
+
+import networkx as nx
+import matplotlib.pyplot as plt
+from networkx.drawing.nx_pydot import graphviz_layout
+import numpy as np
+import multiprocessing as mp
+
+
+class TracerTool:
+    next_node_id = 0
+    START_NODE_COL = 'lightgreen'
+    REGULAR_NODE_COL = 'skyblue'
+    RACE_CONDITION_COL = 'lightcoral'
+    RCFG_NODE_COL = 'moccasin'
+    TEXT_SEPARATOR = '@_@'
+    
+    # Used for graph creation convenience
+    class GraphInfo:
+        def __init__(self, G, node_names, node_colors, edge_names, ratio_dict=None) -> None:
+            self.graph = G
+            self.node_names = node_names
+            self.node_colors = node_colors
+            self.edge_names = edge_names
+            self.ratio_dict = ratio_dict
+    
+    # Represents links between state nodes
+    class Step:
+        def __init__(self, performer, step, receiver=None, parent_node=None) -> None:
+            self.performer = performer
+            self.taken_step = step
+            self.receiver = receiver
+            self.paret_node = parent_node
+            
+        def __str__(self) -> str:
+            rec = f' -> {self.receiver.name}({self.receiver.id})' if self.receiver is not None else ''
+            s = f'[{self.performer.name}({self.performer.id}){rec}] {self.taken_step}'
+            return s
+    
+    # Repsresents the state of the programm
+    class Node:
+        def __init__(self, components, parent=None, prev_step='', level=1, use_color=False) -> None:
+            self.parent = parent
+            self.level = level
+            self.use_color = use_color
+            
+            id = TracerTool.next_node_id
+            TracerTool.next_node_id += 1            
+            self.id = id
+            self.color = TracerTool.REGULAR_NODE_COL
+            
+            self.main_components = components
+            self.children = {}
+            
+            if self.parent is None:
+                trace_txt = ''
+            else:
+                trace_txt = prev_step if parent.prev_steps_txt == '' else f'{parent.prev_steps_txt} ; {prev_step}'
+            self.prev_steps_txt = trace_txt
+            
+        def generate_children(self):
+            res = {}
+            
+            for comp_id, component in self.main_components.items():
+                for key, (term, rest) in component.next_valid.items():
+                    clone, step, sending = component.take_step(key, term, rest)
+                    new_children = self.generate_child(clone, step, sending)
+                    for new_child, step_obj in new_children:
+                        res[new_child] = step_obj
+            
+            self.children = res
+            pass
+        
+        def generate_child(self, performer, step, sending):
+            new_components = self.main_components.copy()
+            id = performer.id
+            new_components[id] = performer
+            
+            if sending:
+                res = []
+                meta = ((performer.id, performer.v_clock, performer.name), sending)
+                
+                for id, comp in new_components.items():
+                    if comp is not performer:
+                        # Because we can't revert a component, to check validity we need to clone and then check
+                        possible_receiver = comp.clone()
+                        receive_options = possible_receiver.update_valid_options(meta)
+                        
+                        # If at least one option is to receive msg in question
+                        if len(receive_options) > 0:                            
+                            for receive_key in receive_options:
+                                # Create a copy of new components, in case multiple components can receive the message
+                                local_new_componetns = new_components.copy()
+                                receiver, step_receive, sending_receive = possible_receiver.take_step_by_id(receive_key)
+                                
+                                local_new_componetns[id] = receiver
+                                rcfg_step = f'rcfg{sending}'
+                                child = TracerTool.Node(local_new_componetns, self, rcfg_step, self.level + 1, self.use_color)
+                                step_obj = TracerTool.Step(performer, rcfg_step, receiver, self)
+                                child.color = TracerTool.RCFG_NODE_COL
+                                # child.rcfg_in_progress = True
+                                res.append((child, step_obj))
+                return res
+            # if a step is just a packet manipulation, we only need to change the performer, which is already done
+            else:
+                child = TracerTool.Node(new_components, self, step, self.level + 1, self.use_color)
+                step_obj = TracerTool.Step(performer, step, parent_node=self)
+                return [(child, step_obj)]
+            pass
+         
+        # get more info about the node in a string 
+        def more_info(self, checked=[], show_components=False, current=None):
+            # t = Colors('', [Colors.CYAN])
+            if self.use_color:
+                builder = ColorBuilder('', [Colors.CYAN])
+            else:
+                builder = ColorBuildenPlainText('')
+            builder.add_text(f'Node ({self.id}):\t')
+            builder.add_line(self.convert_to_str(color=True))
+            builder.add_text("Trace:\t")
+            builder.add_line(self.prev_steps_txt, styles=[Colors.BOLD])
+            builder.add_line("Possible steps:")
+            strings = []
+            step_max_len = -1
+            colors = Colors.ALL_COLORS[1:]
+            for i, (node, step_obj) in enumerate(self.children.items()):
+                col = colors[i % len(colors)]
+                style = [Colors.UNDERLINE] if node is current else []
+                if i in checked:
+                    style.append(Colors.STRIKETHROUGH)
+                # if not style:
+                #     style = style2
+                
+                step_txt = builder.apply_style(f'{i}) {builder.apply_style(step_obj, styles=style)}    ', col)
+                step_txt_len = len(f'{i}) {step_obj}    ')
+                step_max_len = step_txt_len if step_txt_len > step_max_len else step_max_len
+                
+                # print(step_txt)
+                
+                meta = (step_txt, node, col)
+                strings.append(meta)
+                # t.add_line(f'{step_txt}\t\t-->\t{node}', styles=style)
+                
+            for step_txt, node, col in strings:
+                padding_len = step_max_len - len(step_txt)
+                padded_text = f'{step_txt}{" " * padding_len}-->\t{node.convert_to_str(color=True)} (id: {node.id})'
+                builder.add_text(padded_text, [Colors.WHITE])
+                builder.add_line()
+                # print(t.get_text())
+                
+            if show_components:
+                builder.add_line()
+                builder.add_line('Current components:')
+                for i, c in self.main_components.items():
+                    if i > 0:
+                        builder.add_line('*/*/*/*/*/*/*/*/*/*/*/*/')
+                    builder.add_line(c)
+            # t.print()
+            return builder.get_text_clear_end()
+        
+        def convert_to_str(self, color=False) -> str:
+            temp = []
+            for id, c in self.main_components.items():
+                if color:
+                    s = c.name_clock_str()
+                else:
+                    s = f'{c.name}{list(c.v_clock)}'
+                temp.append(s)
+            s = ' || '.join(temp)
+            return s
+        
+        # Method was created for parallelisation attempts
+        def handle_data_from_pool(self, source):
+            self.color = source.color
+            
+            real_nodes = {}
+            new_to_proc = {}
+            for child, step in source.children.items():
+                step.paret_node = self
+                child.parent = self
+                new_to_proc[child] = step
+                real_nodes[child.id] = child
+            self.children = new_to_proc
+            return real_nodes, new_to_proc
+            # color, clidren, step?
+        
+        def __str__(self) -> str:
+            return self.convert_to_str()
+        
+    def __init__(self, components, controllers, switches, output_folder='', show_steps=False, use_color=False) -> None:
+        # sanity check
+        if not isinstance(components, dict):
+            raise TypeError(f"\'components\' given to TracerTool must be a dict, got {type(components)}")
+        for c in components.values():
+            if not isinstance(c, Component):
+                raise TypeError(f"\'components\' must contain instances of Component, got {type(c)}")
+            
+        self.prog_to_trace = components
+        self.controllers = controllers
+        self.switches = switches
+        
+        self.output_folder = output_folder
+        self.show_steps = show_steps
+        self.use_color = use_color
+        self.last_traces = None
+        
+    def get_builder(self, text='', colors=None, styles=None):
+        if self.show_steps:
+            if self.use_color:
+                builder = ColorBuilder(str(text), colors, styles)
+            else:
+                builder = ColorBuildenPlainText(str(text))
+        else:
+            builder = ColorBuilderNoOutput(text, colors, styles)
+        return builder
+        
+    def create_start_node(self):
+        TracerTool.next_node_id = 0
+        start_node = self.Node(self.prog_to_trace, use_color=self.use_color)
+        start_node.color = self.START_NODE_COL
+        self.start_node = start_node
+        
+    def process_node_wrapper(self, args):
+        node, get_only_races = args
+        # node = real_nodes[node_ref]
+        lvl = node.level - 1
+        n, r, nc = self.trace(node, get_only_races, lvl)
+        d = {
+            # "node_ref": node_ref,
+            "node": n,
+            "trace": r,
+            "n_child": nc
+        }
+        return d
+        
+    def call_trace(self, get_only_races=False):
+        self.create_start_node()
+        self.start_node.generate_children()
+        # self.make_and_save_graph('temp.png')
+        traces = []
+        
+        # manager = mp.Manager()
+        # real_nodes = manager.dict()
+        real_nodes = {}
+        real_nodes[0] = self.start_node
+        # node_refs = [self.start_node.id]
+        # node_refs = [self.start_node]
+        children_to_proc = dict(self.start_node.children)
+        for c in children_to_proc:
+            real_nodes[c.id] = c
+            
+        with mp.Pool(processes=8) as pool:
+            # nodes_to_process = [self.start_node]
+            while children_to_proc:
+                
+                # self.make_and_save_graph('temp.png')
+                args = [(node_ref, get_only_races) for node_ref in children_to_proc]
+                # args = [(node_ref, real_nodes, get_only_races) for node_ref in node_refs]
+                res = pool.map(self.process_node_wrapper, args)
+                
+                pass
+            
+                children_to_proc.clear()
+                for r in res:
+                    new_node = r["node"]
+                    og_node = real_nodes[new_node.id]
+                    additional_real_nodes, new_proc = og_node.handle_data_from_pool(new_node)
+                    real_nodes.update(additional_real_nodes)
+                    children_to_proc.update(new_proc)
+                    
+                    trc = r["trace"]
+                    if trc:
+                        traces.extend(trc)
+                        # TODO mb remove this for speed
+                        clk_ok = self.check_clocks(og_node)
+                        if not clk_ok:
+                            og_node.color = self.RACE_CONDITION_COL
+                    pass
+                # self.make_and_save_graph('temp.png')
+                
+                # args = list(zip(nodes_to_process.values(), [get_only_races] * len(nodes_to_process)))
+                # # results = self.process_node_wrapper(args[0])
+                # results = pool.map(self.process_node_wrapper, args)
+                
+                # n = results[0][0]
+                # nodes_to_process[0].handle_data_from_pool(results[0][0])
+                
+                # # TODO speed this up
+                # self.make_and_save_graph('temp.png')
+                # for i, n in enumerate(nodes_to_process):
+                #     color = results[i][0].color
+                #     children = results[i][2].children
+                #     pass
+                # self.make_and_save_graph('temp.png')
+                    
+                # real_nodes = manager.dict()
+                # for node, traces, new_nodes in results:
+                #     real_nodes.extend(new_nodes)
+                #     pass
+                pass
+        # traces = self.trace(self.start_node, get_only_races)
+        self.last_traces = traces
+        # self.make_and_save_graph('temp.png')
+        pass
+    
+    # def trace_nodes(self, node, get_only_races=False):
+    #     lvl = node.level
+    #     r = self.trace(node, get_only_races, lvl)
+    #     pass
+    #     return False
+    
+    def trace(self, node, get_only_races=False, level=0):
+        t = self.get_builder('', [Colors.YELLOW], [Colors.DIM])
+            
+        # print('-=-=-=-=-=-=-=-=-=-=-=-=-CALLED TRACE-=-=-=-=-=-=-=-=-=-=-=-=-')
+        t.add_line('\n-=-=-=-=-=-=-=-=-=-=-=-=-CALLED TRACE-=-=-=-=-=-=-=-=-=-=-=-=-', styles=[Colors.BOLD])
+        txt_level = t.apply_style(level, [Colors.BLUE])
+        t.add_line(f'level: {txt_level}')
+        
+        if node is None:
+            return None
+        if not isinstance(node, TracerTool.Node):
+            raise RuntimeError("Improprer call of trace (possibly in recursion)")
+        
+        cloks_ok = self.check_clocks(node)
+        if not cloks_ok:
+            node.color = TracerTool.RACE_CONDITION_COL
+            
+        # Generate children if clocks are ok or we want not only race conditions
+        if cloks_ok or not get_only_races:
+            node.generate_children()
+        
+        # self.make_and_save_graph()
+        pass
+    
+        # noda has no children
+        if len(node.children) == 0:
+            is_race = False if cloks_ok else True
+            t.add_line(node.more_info(show_components=True), styles=[Colors.CLEAR_STYLE])
+            t.add_line('Reached no further options, making trace...')
+            obj = node
+            trace = deque()
+            trace_w_performers = deque()
+            while obj.parent is not None:
+                parent = obj.parent
+                step = parent.children[obj]
+                trace.appendleft(step.taken_step)
+                trace_w_performers.appendleft(f'{str(step)}{self.TEXT_SEPARATOR}{{{obj}}}{self.TEXT_SEPARATOR}nid:{obj.id}')
+                obj = obj.parent
+            t.add_line("!!!!!CREATED NEW TRACE!!!!!", [Colors.RED], [Colors.BOLD])
+            if is_race:
+                t.add_line("!#!#!#!#!#!#! RACE !#!#!#!#!#!#!", [Colors.RED], [Colors.BOLD])
+            t.add_line("Short")
+            t.add_line(' ; '.join(list(trace)), [Colors.GREEN], {Colors.CLEAR_STYLE})
+            
+            trace_w_performers.appendleft(f'{{{obj}}}{self.TEXT_SEPARATOR}nid:{obj.id}')
+            t.add_line("Long")
+            t.add_line(' ;\n'.join(list(trace_w_performers)), [Colors.GREEN], [Colors.CLEAR_STYLE])
+            txt_level = t.apply_style(level, [Colors.BLUE])
+            t.add_line(f'level: {txt_level}')
+            t.add_line('======================exit level========================', styles=[Colors.BOLD])
+            t.print()
+            pass
+            ret_obj = []
+            if get_only_races:
+                if not cloks_ok:
+                    ret_obj = [(node, (trace, trace_w_performers))]
+            else:
+                ret_obj = [(node, (trace, trace_w_performers))]
+            return node, ret_obj, []
+            
+        res = []
+        checked = []
+        new_children = []
+        
+        for i, (child_node, step) in enumerate(node.children.items()):
+            t.add_line(node.more_info(checked=checked, show_components=True, current=child_node), styles=[Colors.CLEAR_STYLE])
+            t.add_line('Calling trace for step:')
+            t.add_line(f'{i}) {step}', styles=[Colors.CLEAR_STYLE])
+            t.print()
+            pass
+            new_children.append(child_node)
+            # x = self.trace(child_node, get_only_races, level + 1)
+            # res.extend(x)
+            checked.append(i)
+            t.add_line(f'level: {txt_level}')
+            pass
+        t.add_line(node.more_info(checked=checked, current=child_node), styles=[Colors.CLEAR_STYLE])
+        t.add_line(f'level: {txt_level}')
+        t.add_line('======================exit level========================', styles=[Colors.BOLD])
+        if level > 0:
+            t.print()
+        else:
+            print(t.get_text_clear_end())
+        pass
+        return node, res, new_children
+    
+# ==================================================================================================    
+# Clock methods
+    def check_clocks(self, node):
+        controllers = [node.main_components[c] for c in self.controllers]
+        controllers_in_sync = self.check_controller_clocks(controllers)
+        if not controllers_in_sync:
+            return False
+        
+        switches = [node.main_components[sw] for sw in self.switches]
+        synched = self.check_controller_switch_clocks(controllers, switches)
+        return synched
+    
+    def check_controller_clocks(self, components):
+        for i, component1 in enumerate(components):
+            clock1 = component1.v_clock
+            for component2 in components[i+1:]:
+                clock2 = component2.v_clock
+                # next function has same parts (done this way for (theoretical) efficiency) 
+                if np.array_equal(clock1, clock2):
+                    continue
+                lesser = np.all(clock1 <= clock2)
+                greater = np.all(clock1 >= clock2)
+                if lesser and greater:
+                    return False
+        return True
+                
+    def check_controller_switch_clocks(self, controllers, switches):
+        for c in controllers:
+            cc = c.v_clock
+            for sw in switches:
+                swc = sw.v_clock
+                # previous function has same parts (done this way for (theoretical) efficiency) 
+                if np.array_equal(cc, swc):
+                    continue
+                lesser = np.all(cc <= swc)
+                greater = np.all(cc >= swc)
+                if not lesser and not greater:
+                    return False
+        return True
+                
+    
+# ==================================================================================================    
+# Trace string methods
+    def format_traces(self, color_builder=None, long=False, color=True):
+        if self.last_traces is None:
+            return 'Call \'TracerTool.call_trace()\' first'
+        
+        res = []
+        if self.use_color:
+            t = ColorBuilder()
+        else:
+            t = ColorBuildenPlainText()
+            
+        for last_node, traces in self.last_traces:
+            short_trc, long_trc = traces
+            trace = long_trc if long else short_trc
+            s = self.format_trace(trace, long, color)
+            res.append(s)
+            pass
+            
+        for i, trc in enumerate(res):
+            t.add_line(f'Trace {i}:')
+            t.add_line(trc)
+            t.add_line()
+        
+        if color:
+            s = t.get_and_reset_text_keep_col()
+        else:
+            s = t.get_text_clear_end()
+        return s
+    
+    def format_trace(self, trace, long=False, color=True):
+        if self.use_color:
+            t = ColorBuilder()
+        else:
+            t = ColorBuildenPlainText()
+        colors = Colors.ALL_COLORS[1:]
+        trace_array = list(trace)
+        if long:
+            arr = trace_array[0].split(self.TEXT_SEPARATOR)
+            prog = t.apply_style(arr[0], styles=[Colors.DIM])
+            nid = t.apply_style(arr[1], [Colors.MAGENTA], [Colors.DIM])
+            t.add_line(f'{prog} {nid};')
+            trace_array = trace_array [1:]
+            
+        for i, trc in enumerate(trace_array):
+            col = colors[i % len(colors)] if color else []
+                
+            if long:
+                arr = trc.split(self.TEXT_SEPARATOR)
+                step = t.apply_style(arr[0], col)
+                prog = t.apply_style(arr[1], styles=[Colors.DIM])
+                nid = t.apply_style(arr[2], [Colors.MAGENTA], [Colors.DIM])
+                t.add_line(f'{step} {prog} {nid};')
+            else:
+                t.add_text(f'{trc};', col)
+                
+        return t.get_and_reset_text_keep_col()
+    
+# ==================================================================================================    
+# Graph methods
+    def make_race_only_graph(self):
+        traces = self.last_traces
+        set_of_nodes = set([obj for obj, _ in traces])
+        
+        g_nodes = []
+        g_edges = []
+        g_custom_labels = {}
+        g_edge_labels = {}
+        g_node_colors = []
+        
+        g_ratio_dict = {}
+        
+        if len(traces) > 0:
+            while len(set_of_nodes) > 1 or not list(set_of_nodes)[0].level == 1:
+                parent_set = set()
+                for node in set_of_nodes:
+                    parent = node.parent
+                    if parent is None:
+                        continue
+                    parent_set.add(parent)
+                    parent_id = str(parent.id)
+                                
+                    lvl = node.level
+                    g_ratio_dict[lvl] = g_ratio_dict[lvl] + 1 if lvl in g_ratio_dict else 1
+                    
+                    node_name = f'{node.id}\n{str(node)}'
+                    node_id = str(node.id)
+                    
+                    if node_id not in g_nodes:
+                        g_nodes.append(node_id)
+                        g_node_colors.append(node.color)
+                        g_custom_labels[node_id] = node_name
+                    
+                    step = parent.children[node]
+                    edge = (parent_id, node_id)
+                    edge_label = str(step)
+                    g_edges.append(edge)
+                    g_edge_labels[edge] = edge_label
+                    pass
+                if not parent_set:
+                    parent_set.add(list(set_of_nodes)[0])
+                set_of_nodes = parent_set
+        
+        # Add start node
+        node = self.start_node
+        st_node_name = f'{node.id}\n{str(node)}'
+        st_node_id = str(node.id)
+        
+        g_nodes.append(st_node_id)
+        g_node_colors.append(node.color)
+        g_custom_labels[st_node_id] = st_node_name
+        g_ratio_dict[1] = 1
+                
+        G = nx.DiGraph()
+        
+        G.add_nodes_from(list(g_nodes))
+        G.add_edges_from(g_edges)   
+        
+        g_info = self.GraphInfo(G, g_custom_labels, g_node_colors, 
+                                g_edge_labels, g_ratio_dict)
+        self.graph_info = g_info
+
+        pass
+    
+        return G, g_custom_labels, g_edge_labels
+        
+    def make_graph(self):
+        def add_children_from(local_node, level=1):
+            node_id = str(local_node.id)
+            level += 1
+            for child, step in local_node.children.items():
+                ratio_dict[level] = ratio_dict[level] + 1 if level in ratio_dict else 1
+                child_name = f'{child.id}\n{str(child)}'
+                child_id = str(child.id)
+                nodes.append(child_id)
+                node_colors.append(child.color)
+                custom_labels[child_id] = child_name
+                
+                edge = (node_id, child_id)
+                edge_label = str(step)
+                edges.append(edge)
+                edge_labels[edge] = edge_label
+                add_children_from(child, level)
+            pass
+        
+        
+        # G = nx.DiGraph()
+        
+        nodes = []
+        edges = []
+        custom_labels = {}
+        edge_labels = {}
+        node_colors = []
+        
+        node = self.start_node
+        node_name = f'{node.id}\n{str(node)}'
+        node_id = str(node.id)
+        # node_id = node_name
+        
+        nodes.append(node_id)
+        node_colors.append(node.color)
+        custom_labels[node_id] = node_name
+        
+        ratio_dict = {1: 1}
+        add_children_from(node)
+        
+        G = nx.DiGraph()
+        # G = nx.balanced_tree(branching_factor, depth)
+        
+        G.add_nodes_from(nodes)
+        G.add_edges_from(edges)
+        
+        g_info = self.GraphInfo(G, custom_labels, node_colors, edge_labels, ratio_dict)
+        self.graph_info = g_info
+
+        return G, custom_labels, edge_labels
+        
+    def save_graph(self, filename='TRACE.png'):
+        try:
+            g_inf = self.graph_info
+            G = g_inf.graph
+            node_labels = g_inf.node_names
+            edge_labels = g_inf.edge_names
+            node_colors = g_inf.node_colors
+            ratio_dict = g_inf.ratio_dict
+            
+            node_size = 11000
+            font_size = 8
+            label_size = 8.5
+            margin_size_left = 0.5
+            margin_size_bot = 0.05
+            
+            # pos = nx.spring_layout(G)
+            # pos = graphviz_layout(G, prog="twopi")
+            pos = graphviz_layout(G, prog="dot")
+            # pos = graphviz_layout(G, prog="circo")
+            
+            if ratio_dict is None:
+                num_nodes = len(G.nodes)
+                size_mult = 3.5
+                fig_size = (num_nodes * 2 * size_mult, num_nodes * 1.5 * size_mult)
+            else:
+                depth = max(ratio_dict.keys())
+                width = max(ratio_dict.values())
+                y_mult = 2.2
+                x_mult = 2.35
+                padding = 5 
+                x = width * x_mult + padding
+                y = depth * y_mult + padding 
+                
+                # x = 8
+                # y = 1.55
+                left_margin = margin_size_left / (margin_size_left * 2 + x)
+                bot_margin = margin_size_bot / (margin_size_bot * 2 + y)
+                xx = x + margin_size_left * 2
+                yy = y + margin_size_bot * 2
+                
+                fig_size = (xx, yy)
+            
+            
+            plt.figure(figsize=fig_size)
+            # plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
+            plt.subplots_adjust(left=left_margin, right=1-left_margin, top=1-bot_margin, bottom=bot_margin)
+            
+
+            nx.draw_networkx_nodes(G, pos, node_size=node_size, node_color=node_colors)
+            nx.draw_networkx_edges(G, pos, arrowstyle='->', arrowsize=20, edge_color="gray", style='dashed', width=2)
+
+            nx.draw_networkx_labels(G, pos, labels=node_labels, font_size=font_size, font_color="black", font_weight="bold")
+            # nx.draw_networkx_edge_labels(G, pos, label_pos=1, edge_labels=edge_labels, font_color='red', font_size=10, font_weight='bold')
+            
+            # Manually adjust edge label positions
+            i = 0
+            center_y_deviation = [-7, 0, 7, 14]
+            for edge, label in edge_labels.items():
+                x = (pos[edge[1]][0])
+                depth = (pos[edge[1]][1] + pos[edge[0]][1]) / 2 - 8
+                dev = center_y_deviation[i]
+                depth += dev
+                i = i + 1 if i + 1 < len(center_y_deviation) else 0
+                plt.text(x, depth, label, color='white', fontsize=label_size,
+                        ha='center', va='center',
+                        bbox=dict(facecolor='black', alpha=0.6))
+
+            # plt.title("Trace")
+            plt.axis('off')  # Turn off the axis
+
+            # Save the figure
+            x = os.path.join(self.output_folder, filename)
+            plt.savefig(x)
+            plt.close()
+        except Exception as e:
+            t = self.get_builder('', [Colors.RED], [Colors.BOLD])
+            t.add_line(f'Error occured during the image creation: {e}')
+            print(t)
+        
+    def make_and_save_graph(self, filename='TRACE_gen.png'):
+        self.make_graph()
+        self.save_graph(filename)
+        
+    def make_and_save_race_graph(self, filename='TRACE_RACE_gen.png'):
+        self.make_race_only_graph()
+        self.save_graph(filename)
